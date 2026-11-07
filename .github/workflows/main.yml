@@ -1,0 +1,36 @@
+name: Windows RDP via Tailscale
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - name: Connect to Tailscale
+      uses: tailscale/github-action@v3
+      with:
+        authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+
+    - name: Enable Remote Desktop (RDP)
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+
+    - name: Create RDP User
+      run: |
+        $Password = ConvertTo-SecureString "MySecretPassword123!" -AsPlainText -Force
+        New-LocalUser "RDPUser" -Password $Password -Description "RDP User"
+        Add-LocalGroupMember -Group "Administrators" -Member "RDPUser"
+        Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDPUser"
+
+    - name: Get Tailscale IP
+      run: |
+        ipconfig
+        echo "=== Use your Tailscale IP and RDPUser credentials to connect ==="
+
+    - name: Keep Runner Alive
+      run: |
+        $Timeout = 360  # الوقت بالدقائق (6 ساعات كحد أقصى)
+        Start-Sleep -Seconds ($Timeout * 60)
